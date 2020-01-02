@@ -26,7 +26,6 @@ $isSetWindSpeed = ""; # Empty or 1
 $isSetWindDirection = ""; # Empty or 1
 $isSetPrecip = ""; # Empty or 1
 
-### Do not edit under here unless you know what you are doing!!!
 $querystr="id=$location[0]&appid=$apikey&units=$units";
 $context = stream_context_create(array('http' => array('header' => 'Accept: application/xml')));
 $url = "http://api.openweathermap.org/data/2.5/weather?mode=xml&".$querystr;
@@ -66,6 +65,8 @@ if($isConfig) {
     echo "graph_args --base 1000 -l 0\n";
     echo "graph_scale no\n";
     echo "temp_avg.label temp (cureent)\n";
+    echo "temp_avg.warning 20:80\n";
+    echo "temp_avg.critical 10:90\n";
 
     if(!empty($isSetTemp)) {
         echo "multigraph $plloc.temp\n";
@@ -77,6 +78,8 @@ if($isConfig) {
         echo "graph_args --base 1000 -l 0\n";
         echo "graph_scale no\n";
         echo "temp_avg.label temp (cureent)\n";
+        echo "temp_avg.warning 20:80\n";
+        echo "temp_avg.critical 10:90\n";
         echo "temp_min.label min\n";
         echo "temp_max.label max\n";
     }
@@ -91,6 +94,8 @@ if($isConfig) {
         echo "graph_args --base 1000 -l 0\n";
         echo "graph_scale no\n";
         echo "temp_feels.label feels like\n";
+        echo "temp_feels.warning 20:80\n";
+        echo "temp_feels.critical 10:90\n";
     }
 
     if(!empty($isSetHumidity)) {
@@ -127,7 +132,11 @@ if($isConfig) {
         echo "graph_args --base 1000 -l 0\n";
         echo "graph_scale no\n";
         echo "speed.label wind speed\n";
+        echo "speed.warning 0:40\n";
+        echo "speed.critical 0:70\n";
         echo "gusts.label wind gusts\n";
+        echo "gusts.warning 0:40\n";
+        echo "gusts.critical 0:70\n";
     }
 
     if(!empty($isSetWindDirection)) {
