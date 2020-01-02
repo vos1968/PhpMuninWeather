@@ -64,6 +64,7 @@ if($isConfig) {
     echo "graph_info This graph shows the temperature in $city\n";
     echo "graph_args --base 1000 -l 0\n";
     echo "graph_scale no\n";
+    echo "temp_avg.colour 88cc88\n";
     echo "temp_avg.label temp (cureent)\n";
     echo "temp_avg.warning 20:80\n";
     echo "temp_avg.critical 10:90\n";
@@ -161,7 +162,6 @@ if($isConfig) {
         echo "graph_scale no\n";
         echo "precip.label precipitation\n";
     }
-    exit(0);
 }
 
 echo "multigraph $plloc\n";
