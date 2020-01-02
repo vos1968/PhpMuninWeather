@@ -1,0 +1,199 @@
+#!/usr/bin/php -q
+<?php
+function unserialize_xml($input, $callback = null, $recurse = false) {
+  $data = ((!$recurse) && is_string($input))? simplexml_load_string($input): $input;
+  if ($data instanceof SimpleXMLElement) $data = (array) $data;
+  if (is_array($data)) foreach ($data as &$item) $item = unserialize_xml($item, $callback, true);
+  return (!is_array($data) && is_callable($callback))? call_user_func($callback, $data): $data;
+}
+
+$loc = preg_split('/[_]/', basename($argv[0]),-1, PREG_SPLIT_OFFSET_CAPTURE);
+$location = array_pop($loc);
+if(empty($location[0])) {
+    echo "Please 'ln -s /usr/share/munin/plugins/weather_ /etc/munin/plugins/weather_XXXXXXX'\n";
+    echo "replace 'XXXXXXX' with your location code!\n";
+    exit(0);
+}
+$isConfig = isset($argv[1]) && $argv[1] == 'config';
+
+$apikey="replace_with_yours"; # Get it here => https://openweathermap.org/.
+$units="imperial"; # Can be imperial or metric.
+$isSetTemp = ""; # Empty or 1
+$isSetFeels = ""; # Empty or 1
+$isSetHumidity = ""; # Empty or 1
+$isSetPressure = ""; # Empty or 1
+$isSetWindSpeed = ""; # Empty or 1
+$isSetWindDirection = ""; # Empty or 1
+$isSetPrecip = ""; # Empty or 1
+
+### Do not edit under here unless you know what you are doing!!!
+$querystr="id=$location[0]&appid=$apikey&units=$units";
+$context = stream_context_create(array('http' => array('header' => 'Accept: application/xml')));
+$url = "http://api.openweathermap.org/data/2.5/weather?mode=xml&".$querystr;
+$urlget = file_get_contents($url, false, $context);
+$xml = simplexml_load_string($urlget);
+$mydata = array();
+$mydata = unserialize_xml($xml,0,'trim');
+
+$plloc = "weather_$location[0]";
+$city = $mydata['city']['@attributes']['name'];
+$temp_avg = $mydata['temperature']['@attributes']['value'];
+$temp_min = $mydata['temperature']['@attributes']['min'];
+$temp_max = $mydata['temperature']['@attributes']['max'];
+$feels = $mydata['feels_like']['@attributes']['value'];
+$humidity = $mydata['humidity']['@attributes']['value'];
+$pressure = $mydata['pressure']['@attributes']['value'];
+$wd_speed = $mydata['wind']['speed']['@attributes']['value'];
+if(empty($mydata['wind']['gusts']['@attributes']['value'])) {
+    $wd_gusts = 0;
+} else {
+    $wd_gusts = $mydata['wind']['gusts']['@attributes']['value'];
+}
+$wd_direc = $mydata['wind']['direction']['@attributes']['value'];
+if(empty($mydata['precipitation']['@attributes']['value'])) {
+    $precipitation = 0;
+} else {
+    $precipitation = $mydata['precipitation']['@attributes']['value'];
+}
+
+if($isConfig) {
+    echo "multigraph $plloc\n";
+    echo "graph_title Temperature in $city\n";
+    if($units == 'imperial') echo "graph_vlabel Fahrenheit\n";
+    if($units == 'metric') echo "graph_vlabel Celsius\n";
+    echo "graph_category weather\n";
+    echo "graph_info This graph shows the temperature in $city\n";
+    echo "graph_args --base 1000 -l 0\n";
+    echo "graph_scale no\n";
+    echo "temp_avg.label temp (cureent)\n";
+
+    if(!empty($isSetTemp)) {
+        echo "multigraph $plloc.temp\n";
+        echo "graph_title Temperature in $city\n";
+        if($units == 'imperial') echo "graph_vlabel Fahrenheit\n";
+        if($units == 'metric') echo "graph_vlabel Celsius\n";
+        echo "graph_category weather\n";
+        echo "graph_info This graph shows the temperature in $city\n";
+        echo "graph_args --base 1000 -l 0\n";
+        echo "graph_scale no\n";
+        echo "temp_avg.label temp (cureent)\n";
+        echo "temp_min.label min\n";
+        echo "temp_max.label max\n";
+    }
+
+    if(!empty($isSetFeels)) {
+        echo "multigraph $plloc.feels\n";
+        echo "graph_title Feels like temperature in $city\n";
+        if($units == 'imperial') echo "graph_vlabel Fahrenheit\n";
+        if($units == 'metric') echo "graph_vlabel Celsius\n";
+        echo "graph_category weather\n";
+        echo "graph_info This graph shows the feels like temperature in $city\n";
+        echo "graph_args --base 1000 -l 0\n";
+        echo "graph_scale no\n";
+        echo "temp_feels.label feels like\n";
+    }
+
+    if(!empty($isSetHumidity)) {
+        echo "multigraph $plloc.humidity\n";
+        echo "graph_title Humidity in $city\n";
+        echo "graph_vlabel %\n";
+        echo "graph_category weather\n";
+        echo "graph_info This graph shows the humidity in $city\n";
+        echo "graph_args --base 1000 -l 0\n";
+        echo "graph_scale no\n";
+        echo "field_humidity.label humidity\n";
+    }
+
+    if(!empty($isSetPressure)) {
+        echo "multigraph $plloc.pressure\n";
+        echo "graph_title Pressure in $city\n";
+        echo "graph_scale no\n";
+        echo "graph_vlabel hPa\n";
+        echo "graph_category weather\n";
+        echo "graph_info This graph shows the pressure in $city\n";
+        echo "graph_args --base 1000 -l 900\n";
+        echo "graph_scale no\n";
+        echo "graph_scale no\n";
+        echo "field_pressure.label pressure\n";
+    }
+
+    if(!empty($isSetWindSpeed)) {
+        echo "multigraph $plloc.wind_speed\n";
+        echo "graph_title Wind Speed in $city\n";
+        if($units == 'imperial') echo "graph_vlabel mph\n";
+        if($units == 'metric') echo "graph_vlabel kph\n";
+        echo "graph_category weather\n";
+        echo "graph_info This graph shows the wind speed in $city\n";
+        echo "graph_args --base 1000 -l 0\n";
+        echo "graph_scale no\n";
+        echo "speed.label wind speed\n";
+        echo "gusts.label wind gusts\n";
+    }
+
+    if(!empty($isSetWindDirection)) {
+        echo "multigraph $plloc.wind_direction\n";
+        echo "graph_title Wind direction in $city\n";
+        echo "graph_vlabel direction\n";
+        echo "graph_category weather\n";
+        echo "graph_args --upper-limit 360 --lower-limit 0\n";
+        echo "graph_scale no\n";
+        echo "graph_info This graph shows the wind direction in $city\n";
+        echo "direction.label wind direction\n";
+    }
+
+    if(!empty($isSetPrecip)) {
+        echo "multigraph $plloc.precipitation\n";
+        echo "graph_title Precipitation in $city\n";
+        if($units == 'imperial') echo "graph_vlabel inches per hour\n";
+        if($units == 'metric') echo "graph_vlabel cm per hour\n";
+        echo "graph_category weather\n";
+        echo "graph_info This graph shows the precipitation in $city\n";
+        echo "graph_args --base 1000 -l 0\n";
+        echo "graph_scale no\n";
+        echo "precip.label precipitation\n";
+    }
+    exit(0);
+}
+
+echo "multigraph $plloc\n";
+echo "temp_avg.value $temp_avg\n";
+
+if(!empty($isSetTemp)) {
+    echo "multigraph $plloc.temp\n";
+    echo "temp_avg.value $temp_avg\n";
+    echo "temp_min.value $temp_min\n";
+    echo "temp_max.value $temp_max\n";
+}
+
+if(!empty($isSetFeels)) {
+    echo "multigraph $plloc.feels\n";
+    echo "temp_feels.value $feels\n";
+}
+
+if(!empty($isSetHumidity)) {
+    echo "multigraph $plloc.humidity\n";
+    echo "field_humidity.value $humidity\n";
+}
+
+if(!empty($isSetPressure)) {
+    echo "multigraph $plloc.pressure\n";
+    echo "field_pressure.value $pressure\n";
+}
+
+if(!empty($isSetWindSpeed)) {
+    echo "multigraph $plloc.wind_speed\n";
+    echo "speed.value $wd_speed\n";
+    echo "gusts.value $wd_gusts\n";
+}
+
+if(!empty($isSetWindDirection)) {
+    echo "multigraph $plloc.wind_direction\n";
+    echo "direction.value $wd_direc\n";
+}
+
+if(!empty($isSetPrecip)) {
+    echo "multigraph $plloc.precipitation\n";
+    echo "precip.value $precipitation\n";
+}
+
+exit(0);
